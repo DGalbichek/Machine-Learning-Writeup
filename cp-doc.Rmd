@@ -1,0 +1,47 @@
+---
+title: "Weight Lifting Exercises"
+author: "david.g"
+date: "Sunday, July 26, 2015"
+output: html_document
+---
+
+##Introduction
+This assignment is using a the WLE database from the paper below and attempts to establish an efficient prediction model.
+
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises Read more: <http://groupware.les.inf.puc-rio.br/har#ixzz3h1ejNReu>
+
+We are going to use the following libraries and set a seed for reproducibility:
+```{r}
+library(caret)
+library(randomForest)
+set.seed(12345)
+```
+##Getting and cleaning the data
+After downloading our datasets we will remove variables from the test set that contain NA values, and the timestamps, then clean the training set by removing all variables not present in the testing set but also keeping the classe. Then a quick check for any missing data shows that our working set is complete.
+```{r}
+if (!file.exists("../pml-training.csv")) { download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv", destfile="../pml-training.csv", method="curl") }
+if (!file.exists("../pml-testing.csv")) { download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv", destfile="../pml-testing.csv", method="curl") }
+train = read.csv("../pml-training.csv")
+test = read.csv("../pml-testing.csv")
+test = test[, colSums(is.na(test)) == 0]
+test <- test[, !grepl("^X|timestamp|window", names(test))]
+trainv2 = train[,names(train) %in% c(names(test),"classe")]
+dim(trainv2)
+sum(complete.cases(trainv2))
+```
+
+##Applying the Random Forest and making predictions
+We will be using this method because it gets us an unbiased estimate of the test set error on the run and saves us from using a separate test set. We will build 150 trees each, because my computer is very slow.
+```{r}
+modFit = randomForest(classe~.-classe,data=trainv2,ntree=150,mtry=5, importance=TRUE)
+modFit
+```
+The confusion matrix shows that the model is very accurate, our most important variables are listed below.
+```{r}
+confusionMatrix(predict(modFit,newdata=trainv2),trainv2$classe)
+varImp(modFit)
+```
+Predictions for the submission.
+```{r}
+predict(modFit, newdata=test)
+```
